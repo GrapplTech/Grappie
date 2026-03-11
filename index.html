@@ -1,0 +1,693 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+  <title>Grappie – AI Interview Coach</title>
+  <meta name="description" content="BYOK AI mock interview coach. Upload your resume, pick your interview type, and practice with an AI that challenges you. All data stays in your browser.">
+
+  <!-- Fonts -->
+  <link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,400;12..96,600;12..96,700;12..96,800&family=Poppins:wght@300;400;500;600&display=swap" rel="stylesheet">
+
+  <!-- PDF.js — browser-side PDF text extraction -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
+  <!-- Mammoth.js — browser-side DOCX text extraction -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/mammoth/1.6.0/mammoth.browser.min.js"></script>
+
+  <!-- App styles -->
+  <link rel="stylesheet" href="css/styles.css">
+</head>
+<body>
+
+<!-- ===== NAV ===== -->
+<nav>
+  <div class="nav-logo" onclick="goHome()" id="nav-logo">
+    <div class="nav-logo-dot"></div>Grappie
+  </div>
+  <div class="nav-right">
+    <div class="nav-badge">Beta</div>
+    <button class="theme-toggle" id="theme-toggle" title="Toggle theme">
+      <svg id="icon-sun" xmlns="http://www.w3.org/2000/svg" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="5"/><line x1="12" y1="1" x2="12" y2="3"/><line x1="12" y1="21" x2="12" y2="23"/><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"/><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"/><line x1="1" y1="12" x2="3" y2="12"/><line x1="21" y1="12" x2="23" y2="12"/><line x1="4.22" y1="19.78" x2="5.64" y2="18.36"/><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"/></svg>
+      <svg id="icon-moon" xmlns="http://www.w3.org/2000/svg" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="display:none"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg>
+    </button>
+    <button class="btn btn-secondary btn-sm" id="nav-restart" style="display:none" onclick="handleRestart()">
+      <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="1 4 1 10 7 10"/><path d="M3.51 15a9 9 0 1 0 .49-3.87"/></svg>
+      Restart
+    </button>
+  </div>
+</nav>
+
+<!-- ===== MODAL: API KEY GUIDE ===== -->
+<div class="modal-overlay" id="modal-openrouter">
+  <div class="modal">
+    <div class="modal-head">
+      <h3>Get Your OpenRouter API Key</h3>
+      <button class="btn btn-secondary btn-sm" onclick="closeModal('modal-openrouter')">
+        <svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+      </button>
+    </div>
+    <div class="modal-steps">
+      <div class="modal-step"><div class="step-num">1</div><div class="step-text">Visit <a href="https://openrouter.ai" target="_blank">openrouter.ai</a> and create a free account</div></div>
+      <div class="modal-step"><div class="step-num">2</div><div class="step-text">Sign in with Google, GitHub, or email</div></div>
+      <div class="modal-step"><div class="step-num">3</div><div class="step-text">Go to <strong>Settings → API Keys</strong></div></div>
+      <div class="modal-step"><div class="step-num">4</div><div class="step-text">Click <strong>Create Key</strong> and copy it</div></div>
+      <div class="modal-step"><div class="step-num">5</div><div class="step-text">Paste it here and click <strong>Validate</strong></div></div>
+    </div>
+    <p class="text-sm text-muted" style="margin-top:12px">Free tier available. No credit card required for free models.</p>
+  </div>
+</div>
+
+<!-- ===== NOTIFICATION TOAST ===== -->
+<div class="notif" id="notif"><div class="notif-icon" id="notif-icon"></div><span id="notif-text"></span></div>
+
+<!-- ===== FLOATING CAMERA BUBBLE (shown during interview) ===== -->
+<div class="cam-bubble" id="cam-bubble-float">
+  <video id="cam-float-vid" autoplay muted playsinline></video>
+  <div class="cam-bubble-bar">
+    <div class="cam-bubble-rdot" id="cam-float-dot"></div>
+    <span class="cam-bubble-lbl">You</span>
+  </div>
+</div>
+
+<!-- =============================================================================
+     PAGE: LANDING
+============================================================================= -->
+<div class="page active" id="page-landing">
+  <div class="landing-hero">
+    <div class="hero-inner">
+      <div class="hero-chip"><div class="chip-dot"></div>AI-Powered Interview Coach</div>
+      <div class="grappie-wrap">
+        <div class="speech-bubble" id="speech-bubble">
+          <span class="typing-dots"><span></span><span></span><span></span></span>
+        </div>
+        <div class="grappie-face" id="grappie-face">
+          <div class="grappie-eyes">
+            <div class="grappie-eye" id="eye-left"><div class="grappie-pupil" id="pupil-left"></div></div>
+            <div class="grappie-eye" id="eye-right"><div class="grappie-pupil" id="pupil-right"></div></div>
+          </div>
+          <div class="grappie-mouth"></div>
+          <div class="grappie-cheeks"><div class="grappie-cheek"></div><div class="grappie-cheek"></div></div>
+        </div>
+      </div>
+      <h1 class="hero-title">Ace Your<span class="hero-title-accent">Interview.</span></h1>
+      <p class="hero-sub">Upload your resume, pick your interview type and target role, then practice with an AI that actually challenges you.</p>
+      <button class="btn btn-primary btn-xl" onclick="showPage('setup')">
+        <svg xmlns="http://www.w3.org/2000/svg" width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polygon points="5 3 19 12 5 21 5 3"/></svg>
+        Start Practicing
+      </button>
+    </div>
+  </div>
+
+  <!-- Feature cards strip -->
+  <div class="features-row">
+    <div class="feature-card">
+      <div class="feature-icon"><svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg></div>
+      <h3>Custom Questions</h3>
+      <p>AI generates 8 questions tailored to your resume, role, and interview type.</p>
+    </div>
+    <div class="feature-card">
+      <div class="feature-icon"><svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"/><path d="M19 10v2a7 7 0 0 1-14 0v-2"/></svg></div>
+      <h3>Voice Answers</h3>
+      <p>Speak your answers aloud like a real interview. Real-time transcription included.</p>
+    </div>
+    <div class="feature-card">
+      <div class="feature-icon"><svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg></div>
+      <h3>Live Analysis</h3>
+      <p>Confidence, nervousness, and focus tracked in real-time via camera.</p>
+    </div>
+    <div class="feature-card">
+      <div class="feature-icon"><svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg></div>
+      <h3>Full Report</h3>
+      <p>Downloadable report with scores, strengths, weaknesses and action items.</p>
+    </div>
+  </div>
+
+  <!-- How It Works -->
+  <section style="padding:clamp(60px,8vw,100px) clamp(16px,4vw,32px);background:var(--bg)">
+    <div style="max-width:1040px;margin:0 auto">
+      <div style="font-size:.7rem;font-weight:700;letter-spacing:.12em;color:var(--blue);text-transform:uppercase;margin-bottom:12px">How It Works</div>
+      <h2 style="font-family:'Bricolage Grotesque',sans-serif;font-size:clamp(1.8rem,5vw,3rem);font-weight:800;letter-spacing:-.04em;margin-bottom:16px">Three steps to interview-ready</h2>
+      <p style="color:var(--muted);max-width:500px;font-size:.95rem;line-height:1.8;margin-bottom:52px">No account. No subscription. Just upload your resume and start practising in under 30 seconds.</p>
+      <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:20px">
+        <div style="background:var(--surface);border:1px solid var(--border);border-radius:24px;padding:28px 24px;position:relative;overflow:hidden;transition:all .18s ease" onmouseover="this.style.boxShadow='0 8px 32px rgba(0,0,0,.1)';this.style.transform='translateY(-3px)'" onmouseout="this.style.boxShadow='';this.style.transform=''">
+          <div style="position:absolute;top:-20px;right:-20px;width:80px;height:80px;border-radius:50%;background:linear-gradient(135deg,var(--blue),var(--indigo));opacity:.07"></div>
+          <div style="font-family:'Bricolage Grotesque',sans-serif;font-size:3.5rem;font-weight:800;letter-spacing:-.06em;background:linear-gradient(135deg,var(--blue),var(--indigo));-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text;line-height:1;margin-bottom:16px">01</div>
+          <h3 style="font-size:1.05rem;font-weight:700;margin-bottom:8px;color:var(--text)">Upload Your Resume</h3>
+          <p style="font-size:.81rem;color:var(--muted);line-height:1.7">Drop in your PDF, DOCX or TXT. Grappie extracts your skills and experience entirely in your browser — your file never leaves your device.</p>
+        </div>
+        <div style="background:var(--surface);border:1px solid var(--border);border-radius:24px;padding:28px 24px;position:relative;overflow:hidden;transition:all .18s ease" onmouseover="this.style.boxShadow='0 8px 32px rgba(0,0,0,.1)';this.style.transform='translateY(-3px)'" onmouseout="this.style.boxShadow='';this.style.transform=''">
+          <div style="position:absolute;top:-20px;right:-20px;width:80px;height:80px;border-radius:50%;background:linear-gradient(135deg,var(--blue),var(--indigo));opacity:.07"></div>
+          <div style="font-family:'Bricolage Grotesque',sans-serif;font-size:3.5rem;font-weight:800;letter-spacing:-.06em;background:linear-gradient(135deg,var(--blue),var(--indigo));-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text;line-height:1;margin-bottom:16px">02</div>
+          <h3 style="font-size:1.05rem;font-weight:700;margin-bottom:8px;color:var(--text)">Pick Your Interview Type</h3>
+          <p style="font-size:.81rem;color:var(--muted);line-height:1.7">Choose Technical, HR, Behavioural or Mixed. Enter a target role and company for hyper-targeted questions tailored to that specific employer.</p>
+        </div>
+        <div style="background:var(--surface);border:1px solid var(--border);border-radius:24px;padding:28px 24px;position:relative;overflow:hidden;transition:all .18s ease" onmouseover="this.style.boxShadow='0 8px 32px rgba(0,0,0,.1)';this.style.transform='translateY(-3px)'" onmouseout="this.style.boxShadow='';this.style.transform=''">
+          <div style="position:absolute;top:-20px;right:-20px;width:80px;height:80px;border-radius:50%;background:linear-gradient(135deg,var(--blue),var(--indigo));opacity:.07"></div>
+          <div style="font-family:'Bricolage Grotesque',sans-serif;font-size:3.5rem;font-weight:800;letter-spacing:-.06em;background:linear-gradient(135deg,var(--blue),var(--indigo));-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text;line-height:1;margin-bottom:16px">03</div>
+          <h3 style="font-size:1.05rem;font-weight:700;margin-bottom:8px;color:var(--text)">Practice &amp; Get Your Report</h3>
+          <p style="font-size:.81rem;color:var(--muted);line-height:1.7">Answer 8 AI questions by voice. Grappie tracks confidence, focus and nervousness live, then delivers a full downloadable report with action items.</p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- Interview Types -->
+  <section style="padding:clamp(60px,8vw,100px) clamp(16px,4vw,32px);background:var(--bg2)">
+    <div style="max-width:1040px;margin:0 auto">
+      <div style="font-size:.7rem;font-weight:700;letter-spacing:.12em;color:var(--blue);text-transform:uppercase;margin-bottom:12px">Interview Types</div>
+      <h2 style="font-family:'Bricolage Grotesque',sans-serif;font-size:clamp(1.8rem,5vw,3rem);font-weight:800;letter-spacing:-.04em;margin-bottom:16px">Built for every kind of interview</h2>
+      <p style="color:var(--muted);max-width:520px;font-size:.95rem;line-height:1.8;margin-bottom:44px">Whether you're facing a coding round or a culture-fit HR call, Grappie adapts to the exact format you need to practise.</p>
+      <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:16px">
+        <div style="background:var(--surface);border:1px solid var(--border);border-radius:24px;padding:24px;display:flex;gap:16px;align-items:flex-start;transition:all .18s ease" onmouseover="this.style.boxShadow='0 8px 32px rgba(0,0,0,.08)';this.style.transform='translateY(-2px)'" onmouseout="this.style.boxShadow='';this.style.transform=''">
+          <div style="width:48px;height:48px;border-radius:14px;background:var(--blue-light);color:var(--blue);display:flex;align-items:center;justify-content:center;flex-shrink:0"><svg xmlns="http://www.w3.org/2000/svg" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="16 18 22 12 16 6"/><polyline points="8 6 2 12 8 18"/></svg></div>
+          <div><h3 style="font-size:.96rem;font-weight:700;margin-bottom:6px;color:var(--text)">Technical Round</h3><p style="font-size:.8rem;color:var(--muted);line-height:1.65">Coding, system design, and architecture questions drawn directly from your resume's tech stack.</p></div>
+        </div>
+        <div style="background:var(--surface);border:1px solid var(--border);border-radius:24px;padding:24px;display:flex;gap:16px;align-items:flex-start;transition:all .18s ease" onmouseover="this.style.boxShadow='0 8px 32px rgba(0,0,0,.08)';this.style.transform='translateY(-2px)'" onmouseout="this.style.boxShadow='';this.style.transform=''">
+          <div style="width:48px;height:48px;border-radius:14px;background:var(--green-light);color:var(--green);display:flex;align-items:center;justify-content:center;flex-shrink:0"><svg xmlns="http://www.w3.org/2000/svg" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg></div>
+          <div><h3 style="font-size:.96rem;font-weight:700;margin-bottom:6px;color:var(--text)">HR Round</h3><p style="font-size:.8rem;color:var(--muted);line-height:1.65">Culture fit, motivation, career goals and salary questions. Perfect for recruiter screening rounds.</p></div>
+        </div>
+        <div style="background:var(--surface);border:1px solid var(--border);border-radius:24px;padding:24px;display:flex;gap:16px;align-items:flex-start;transition:all .18s ease" onmouseover="this.style.boxShadow='0 8px 32px rgba(0,0,0,.08)';this.style.transform='translateY(-2px)'" onmouseout="this.style.boxShadow='';this.style.transform=''">
+          <div style="width:48px;height:48px;border-radius:14px;background:rgba(124,58,237,.1);color:var(--purple);display:flex;align-items:center;justify-content:center;flex-shrink:0"><svg xmlns="http://www.w3.org/2000/svg" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg></div>
+          <div><h3 style="font-size:.96rem;font-weight:700;margin-bottom:6px;color:var(--text)">Behavioural</h3><p style="font-size:.8rem;color:var(--muted);line-height:1.65">STAR method situational questions about leadership, conflict and failure. Targeted at competency-based interviews.</p></div>
+        </div>
+        <div style="background:var(--surface);border:1px solid var(--border);border-radius:24px;padding:24px;display:flex;gap:16px;align-items:flex-start;transition:all .18s ease" onmouseover="this.style.boxShadow='0 8px 32px rgba(0,0,0,.08)';this.style.transform='translateY(-2px)'" onmouseout="this.style.boxShadow='';this.style.transform=''">
+          <div style="width:48px;height:48px;border-radius:14px;background:var(--amber-light);color:var(--amber);display:flex;align-items:center;justify-content:center;flex-shrink:0"><svg xmlns="http://www.w3.org/2000/svg" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg></div>
+          <div><h3 style="font-size:.96rem;font-weight:700;margin-bottom:6px;color:var(--text)">Mixed / Full Sim</h3><p style="font-size:.8rem;color:var(--muted);line-height:1.65">A realistic end-to-end simulation combining technical, HR and behavioural. Best if you want comprehensive practice.</p></div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- Stats + CTA -->
+  <section style="padding:clamp(60px,8vw,100px) clamp(16px,4vw,32px);background:var(--bg)">
+    <div style="max-width:1040px;margin:0 auto">
+      <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:0;text-align:center;border:1px solid var(--border);border-radius:24px;overflow:hidden;margin-bottom:80px">
+        <div style="padding:clamp(24px,4vw,40px) 20px;border-right:1px solid var(--border)">
+          <div style="font-family:'Bricolage Grotesque',sans-serif;font-size:clamp(2rem,5vw,3rem);font-weight:800;letter-spacing:-.05em;background:linear-gradient(135deg,var(--blue),var(--indigo));-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text;line-height:1;margin-bottom:6px">3×</div>
+          <div style="font-size:.82rem;color:var(--muted);font-weight:500">Higher offer rate with deliberate practice</div>
+        </div>
+        <div style="padding:clamp(24px,4vw,40px) 20px;border-right:1px solid var(--border)">
+          <div style="font-family:'Bricolage Grotesque',sans-serif;font-size:clamp(2rem,5vw,3rem);font-weight:800;letter-spacing:-.05em;background:linear-gradient(135deg,var(--blue),var(--indigo));-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text;line-height:1;margin-bottom:6px">8</div>
+          <div style="font-size:.82rem;color:var(--muted);font-weight:500">Personalised questions per session</div>
+        </div>
+        <div style="padding:clamp(24px,4vw,40px) 20px">
+          <div style="font-family:'Bricolage Grotesque',sans-serif;font-size:clamp(2rem,5vw,3rem);font-weight:800;letter-spacing:-.05em;background:linear-gradient(135deg,var(--blue),var(--indigo));-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text;line-height:1;margin-bottom:6px">100%</div>
+          <div style="font-size:.82rem;color:var(--muted);font-weight:500">Privacy — all processing on-device</div>
+        </div>
+      </div>
+      <!-- CTA banner -->
+      <div style="background:linear-gradient(135deg,var(--blue) 0%,var(--indigo) 100%);border-radius:28px;padding:clamp(40px,6vw,64px) clamp(24px,5vw,64px);text-align:center;position:relative;overflow:hidden">
+        <div style="position:absolute;inset:0;background-image:linear-gradient(rgba(255,255,255,.04) 1px,transparent 1px),linear-gradient(90deg,rgba(255,255,255,.04) 1px,transparent 1px);background-size:48px 48px"></div>
+        <div style="position:relative;z-index:1;max-width:520px;margin:0 auto">
+          <h2 style="font-family:'Bricolage Grotesque',sans-serif;font-size:clamp(1.6rem,4vw,2.5rem);font-weight:800;color:#fff;letter-spacing:-.04em;margin-bottom:14px">Ready to stop winging it?</h2>
+          <p style="color:rgba(255,255,255,.75);font-size:.95rem;line-height:1.75;margin-bottom:32px">Upload your resume, set your target role, and get 8 personalised interview questions in under 30 seconds. No account, no subscription.</p>
+          <button class="btn btn-xl" onclick="showPage('setup')" style="background:#fff;color:var(--blue);box-shadow:0 4px 20px rgba(0,0,0,.2)">
+            <svg xmlns="http://www.w3.org/2000/svg" width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polygon points="5 3 19 12 5 21 5 3"/></svg>
+            Start Your Free Mock Interview
+          </button>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- Footer -->
+  <footer style="border-top:1px solid var(--border);padding:24px clamp(16px,4vw,32px);display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:10px">
+    <div style="font-family:'Bricolage Grotesque',sans-serif;font-weight:800;font-size:1.1rem;letter-spacing:-.04em;color:var(--text2)">Grappie</div>
+    <div class="text-sm text-muted">Built with OpenRouter · Your data never leaves your browser</div>
+  </footer>
+</div>
+
+<!-- =============================================================================
+     PAGE: SETUP
+============================================================================= -->
+<div class="page" id="page-setup">
+  <div class="setup-container">
+    <div class="setup-header">
+      <button class="btn btn-secondary btn-sm" onclick="showPage('landing')" style="margin-bottom:16px">
+        <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="19" y1="12" x2="5" y2="12"/><polyline points="12 19 5 12 12 5"/></svg>
+        Back to Home
+      </button>
+      <div class="step-label">Configuration</div>
+      <h2>Set Up Your Interview</h2>
+      <p>Fill in all sections to start your AI mock interview.</p>
+    </div>
+
+    <div class="setup-grid">
+
+      <!-- Resume Upload -->
+      <div class="card setup-full">
+        <div class="card-title">
+          <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
+          Resume Upload
+        </div>
+        <div class="upload-zone" id="upload-zone" onclick="document.getElementById('file-input').click()" ondragover="dragOver(event)" ondragleave="dragLeave(event)" ondrop="dropFile(event)">
+          <div class="upload-zone-icon">
+            <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="16 16 12 12 8 16"/><line x1="12" y1="12" x2="12" y2="21"/><path d="M20.39 18.39A5 5 0 0 0 18 9h-1.26A8 8 0 1 0 3 16.3"/></svg>
+          </div>
+          <div class="upload-zone-text"><strong>Click to upload</strong> or drag and drop</div>
+          <div class="upload-zone-text" style="margin-top:2px">PDF, DOCX, TXT — up to 10 MB</div>
+        </div>
+        <input type="file" id="file-input" accept=".pdf,.docx,.txt" style="display:none" onchange="handleFileUpload(event)">
+        <div id="resume-preview-wrap" class="hidden">
+          <div style="display:flex;align-items:center;justify-content:space-between;margin-top:10px;margin-bottom:6px">
+            <span class="text-sm" style="color:var(--green);font-weight:600;display:flex;align-items:center;gap:5px">
+              <svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
+              Resume extracted
+            </span>
+            <button class="btn btn-secondary btn-sm" onclick="clearResume()">Clear</button>
+          </div>
+          <div class="resume-preview" id="resume-preview"></div>
+        </div>
+      </div>
+
+      <!-- Interview Type -->
+      <div class="card setup-full">
+        <div class="card-title">
+          <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="3" width="20" height="14" rx="2" ry="2"/><line x1="8" y1="21" x2="16" y2="21"/><line x1="12" y1="17" x2="12" y2="21"/></svg>
+          Interview Type
+        </div>
+        <div class="type-pills">
+          <button class="type-pill active" id="type-tech" onclick="selectType('Technical',this)">
+            <svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="16 18 22 12 16 6"/><polyline points="8 6 2 12 8 18"/></svg>
+            Technical
+          </button>
+          <button class="type-pill" id="type-hr" onclick="selectType('HR',this)">
+            <svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
+            HR Round
+          </button>
+          <button class="type-pill" id="type-beh" onclick="selectType('Behavioural',this)">
+            <svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
+            Behavioural
+          </button>
+          <button class="type-pill" id="type-mix" onclick="selectType('Mixed',this)">
+            <svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg>
+            Mixed
+          </button>
+        </div>
+        <p class="text-sm text-muted" style="margin-top:10px" id="type-desc">Technical: Coding, system design, and domain-specific problem-solving questions.</p>
+      </div>
+
+      <!-- Target Role -->
+      <div class="card">
+        <div class="card-title">
+          <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M20 7H4a2 2 0 0 0-2 2v10a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2V9a2 2 0 0 0-2-2z"/><path d="M16 21V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v16"/></svg>
+          Target Role
+        </div>
+        <input type="text" class="input-field" id="target-role" placeholder="e.g. Senior Software Engineer" maxlength="80">
+        <p class="text-sm text-muted" style="margin-top:8px">Leave blank to use role from your resume.</p>
+      </div>
+
+      <!-- Target Company -->
+      <div class="card">
+        <div class="card-title">
+          <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="7" width="20" height="14" rx="2" ry="2"/><path d="M16 21V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v16"/></svg>
+          Target Company
+        </div>
+        <input type="text" class="input-field" id="target-company" placeholder="e.g. Google, Infosys, startup..." maxlength="60">
+        <p class="text-sm text-muted" style="margin-top:8px">Grappie will tailor questions to their culture.</p>
+      </div>
+
+      <!-- API Key -->
+      <div class="card">
+        <div class="card-title">
+          <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M21 2l-2 2m-7.61 7.61a5.5 5.5 0 1 1-7.778 7.778 5.5 5.5 0 0 1 7.777-7.777zm0 0L15.5 7.5m0 0l3 3L22 7l-3-3m-3.5 3.5L19 4"/></svg>
+          OpenRouter API Key
+        </div>
+        <div style="display:flex;gap:8px">
+          <input type="password" class="input-field" id="api-key-input" placeholder="sk-or-v1-..." style="flex:1">
+          <button class="btn btn-primary btn-sm" id="validate-btn" onclick="validateKey()">
+            <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
+            Validate
+          </button>
+        </div>
+        <div id="key-status" style="margin-top:8px"></div>
+        <button class="btn btn-secondary btn-sm" style="margin-top:10px" onclick="openModal('modal-openrouter')">
+          <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
+          How to get a key
+        </button>
+      </div>
+
+      <!-- AI Model -->
+      <div class="card">
+        <div class="card-title">
+          <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="3" width="20" height="14" rx="2" ry="2"/><line x1="8" y1="21" x2="16" y2="21"/><line x1="12" y1="17" x2="12" y2="21"/></svg>
+          AI Model
+        </div>
+        <select class="input-field" id="model-select">
+          <option value="deepseek/deepseek-chat">deepseek/deepseek-chat — Recommended</option>
+          <option value="meta-llama/llama-3.1-8b-instruct">meta-llama/llama-3.1-8b-instruct</option>
+          <option value="mistralai/mistral-7b-instruct">mistralai/mistral-7b-instruct</option>
+          <option value="nousresearch/hermes-2-pro-mistral-7b">nousresearch/hermes-2-pro</option>
+          <option value="google/gemma-3-12b-it:free">google/gemma-3-12b (Free)</option>
+          <option value="microsoft/phi-3-mini-128k-instruct:free">microsoft/phi-3-mini (Free)</option>
+        </select>
+        <p class="text-sm text-muted" style="margin-top:8px">DeepSeek is the fastest free option.</p>
+      </div>
+
+      <!-- Duration -->
+      <div class="card">
+        <div class="card-title">
+          <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+          Duration
+        </div>
+        <div class="timer-options">
+          <button class="timer-opt"        onclick="selectDuration(5,this)">5 min</button>
+          <button class="timer-opt active" onclick="selectDuration(15,this)">15 min</button>
+          <button class="timer-opt"        onclick="selectDuration(20,this)">20 min</button>
+          <button class="timer-opt"        onclick="selectDuration(25,this)">25 min</button>
+          <button class="timer-opt"        onclick="selectDuration(30,this)">30 min</button>
+        </div>
+      </div>
+
+      <!-- Roast Mode -->
+      <div class="card">
+        <div class="card-title">
+          <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M8.5 14.5A2.5 2.5 0 0 0 11 12c0-1.38-.5-2-1-3-1.072-2.143-.224-4.054 2-6 .5 2.5 2 4.9 4 6.5 2 1.6 3 3.5 3 5.5a7 7 0 1 1-14 0c0-1.153.433-2.294 1-3a2.5 2.5 0 0 0 2.5 2.5z"/></svg>
+          Interview Style
+        </div>
+        <div class="toggle-wrap" onclick="toggleRoast()">
+          <div class="toggle" id="roast-toggle"></div>
+          <div>
+            <div class="toggle-label" style="font-weight:600">Resume Roast Mode</div>
+            <div class="text-sm text-muted" style="margin-top:2px">Gen-Z style brutal-but-constructive feedback</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Camera + Mic Permissions -->
+      <div class="card setup-full">
+        <div class="card-title">
+          <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
+          Camera &amp; Microphone — Required
+        </div>
+
+        <!-- Pre-grant state -->
+        <div id="perm-request">
+          <div style="display:flex;gap:16px;align-items:flex-start;flex-wrap:wrap">
+            <div style="flex:1;min-width:220px">
+              <p class="text-sm" style="color:var(--text2);margin-bottom:14px;line-height:1.7">Grant access before starting. Required for face analysis and voice answers. All data stays on your device.</p>
+              <div style="display:flex;gap:10px;align-items:center;margin-bottom:9px">
+                <div id="perm-cam-icon" style="width:30px;height:30px;border-radius:8px;background:var(--bg3);border:1px solid var(--border);display:flex;align-items:center;justify-content:center;flex-shrink:0;color:var(--muted)">
+                  <svg xmlns="http://www.w3.org/2000/svg" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M23 7l-7 5 7 5V7z"/><rect x="1" y="5" width="15" height="14" rx="2" ry="2"/></svg>
+                </div>
+                <div><div style="font-size:.83rem;font-weight:600;color:var(--text)">Camera</div><div id="perm-cam-status" class="text-sm text-muted">Not granted</div></div>
+              </div>
+              <div style="display:flex;gap:10px;align-items:center;margin-bottom:16px">
+                <div id="perm-mic-icon" style="width:30px;height:30px;border-radius:8px;background:var(--bg3);border:1px solid var(--border);display:flex;align-items:center;justify-content:center;flex-shrink:0;color:var(--muted)">
+                  <svg xmlns="http://www.w3.org/2000/svg" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"/><path d="M19 10v2a7 7 0 0 1-14 0v-2"/><line x1="12" y1="19" x2="12" y2="23"/><line x1="8" y1="23" x2="16" y2="23"/></svg>
+                </div>
+                <div><div style="font-size:.83rem;font-weight:600;color:var(--text)">Microphone</div><div id="perm-mic-status" class="text-sm text-muted">Not granted</div></div>
+              </div>
+              <button class="btn btn-primary" id="grant-perm-btn" onclick="grantPermissions()">
+                <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
+                Grant Camera &amp; Mic Access
+              </button>
+            </div>
+            <div style="width:200px;flex-shrink:0">
+              <div class="camera-wrap" id="camera-wrap" style="aspect-ratio:4/3">
+                <video id="camera-feed" autoplay muted playsinline></video>
+                <div class="camera-overlay" id="camera-overlay">
+                  <svg xmlns="http://www.w3.org/2000/svg" width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" style="color:var(--muted)"><path d="M23 7l-7 5 7 5V7z"/><rect x="1" y="5" width="15" height="14" rx="2" ry="2"/></svg>
+                  <span class="text-sm text-muted" style="margin-top:4px">Preview here</span>
+                </div>
+                <div class="face-dot" id="face-indicator"></div>
+              </div>
+              <p class="cam-hint">Preview appears after access is granted.</p>
+            </div>
+          </div>
+        </div>
+
+        <!-- Post-grant state -->
+        <div id="perm-granted" class="hidden">
+          <div style="display:flex;gap:16px;align-items:flex-start;flex-wrap:wrap">
+            <div style="flex:1;min-width:220px">
+              <div style="display:flex;align-items:center;gap:9px;padding:11px 13px;background:var(--green-light);border:1px solid rgba(22,163,74,.2);border-radius:var(--r);margin-bottom:12px">
+                <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="color:var(--green);flex-shrink:0"><polyline points="20 6 9 17 4 12"/></svg>
+                <span style="font-size:.82rem;font-weight:600;color:var(--green)">Camera and microphone access granted</span>
+              </div>
+              <div style="display:flex;gap:10px;align-items:center;margin-bottom:7px">
+                <div style="width:26px;height:26px;border-radius:7px;background:var(--green-light);display:flex;align-items:center;justify-content:center;flex-shrink:0;color:var(--green)"><svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg></div>
+                <span style="font-size:.82rem;color:var(--text2)">Camera active — face analysis enabled</span>
+              </div>
+              <div style="display:flex;gap:10px;align-items:center">
+                <div style="width:26px;height:26px;border-radius:7px;background:var(--green-light);display:flex;align-items:center;justify-content:center;flex-shrink:0;color:var(--green)"><svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg></div>
+                <span style="font-size:.82rem;color:var(--text2)">Microphone ready — voice recognition enabled</span>
+              </div>
+            </div>
+            <div style="width:200px;flex-shrink:0">
+              <div class="camera-wrap" style="aspect-ratio:4/3">
+                <video id="camera-feed-granted" autoplay muted playsinline></video>
+                <div class="face-dot detected" id="face-indicator-granted" style="top:8px;right:8px;position:absolute"></div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Start Button -->
+      <div class="setup-full" style="display:flex;flex-direction:column;align-items:center;gap:10px;padding-top:8px">
+        <button class="btn btn-primary btn-lg" id="start-btn" onclick="startInterview()">
+          <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polygon points="5 3 19 12 5 21 5 3"/></svg>
+          Begin Interview
+        </button>
+        <p class="text-sm text-muted">Resume, API key, and permissions required</p>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- =============================================================================
+     PAGE: INTERVIEW
+============================================================================= -->
+<div class="page" id="page-interview">
+
+  <!-- Loading state (shown while questions are generated) -->
+  <div id="loading-interview">
+    <div class="loading-ring"></div>
+    <div>
+      <div style="font-family:'Bricolage Grotesque',sans-serif;font-size:1.25rem;font-weight:700">Preparing your interview...</div>
+      <div class="text-sm text-muted" style="margin-top:4px">Generating personalized questions from your resume</div>
+    </div>
+    <div class="prog-track" style="width:260px">
+      <div class="prog-fill" id="loading-progress" style="width:0%"></div>
+    </div>
+  </div>
+
+  <!-- Interview UI (shown after questions are ready) -->
+  <div class="interview-layout hidden" id="interview-ui">
+
+    <!-- LEFT PANEL: Grappie + timer + metrics + camera -->
+    <div class="interview-left" id="interview-left-panel">
+
+      <!-- Grappie character -->
+      <div class="interview-grappie-wrap">
+        <div class="grappie-face-sm" id="grappie-sm">
+          <div class="grappie-eyes">
+            <div class="grappie-eye" id="eye-sm-left"><div class="grappie-pupil" id="pupil-sm-left"></div></div>
+            <div class="grappie-eye" id="eye-sm-right"><div class="grappie-pupil" id="pupil-sm-right"></div></div>
+          </div>
+          <div class="grappie-mouth"></div>
+          <div class="grappie-cheeks"><div class="grappie-cheek"></div><div class="grappie-cheek"></div></div>
+        </div>
+        <div class="interview-bubble" id="grappie-comment">Ready. Let's go.</div>
+        <div class="grappie-q-bubble" id="grappie-q-bubble"></div>
+      </div>
+
+      <!-- Countdown timer -->
+      <div class="timer-card">
+        <div class="timer-num" id="timer-display">15:00</div>
+        <div class="timer-sub">Time Remaining</div>
+        <div class="prog-track"><div class="prog-fill" id="timer-progress" style="width:100%"></div></div>
+      </div>
+
+      <!-- Question progress -->
+      <div class="q-progress-card">
+        <div>
+          <div class="q-progress-big" id="q-progress">1 / —</div>
+          <div class="q-progress-label">Question Progress</div>
+        </div>
+        <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="color:var(--muted)"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg>
+      </div>
+
+      <!-- Live face analysis metrics -->
+      <div class="metric-card">
+        <div class="card-title" style="margin-bottom:12px">
+          <svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg>
+          Live Analysis
+        </div>
+        <div class="metric-row">
+          <div class="metric-labels"><span>Confidence</span><span id="confidence-val" style="color:var(--blue)">—</span></div>
+          <div class="metric-track"><div class="metric-fill fill-conf" id="confidence-bar" style="width:0%"></div></div>
+        </div>
+        <div class="metric-row">
+          <div class="metric-labels"><span>Nervousness</span><span id="nervous-val" style="color:var(--amber)">—</span></div>
+          <div class="metric-track"><div class="metric-fill fill-nerv" id="nervous-bar" style="width:0%"></div></div>
+        </div>
+        <div class="metric-row">
+          <div class="metric-labels"><span>Focus</span><span id="focus-val" style="color:var(--green)">—</span></div>
+          <div class="metric-track"><div class="metric-fill fill-focus" id="focus-bar" style="width:0%"></div></div>
+        </div>
+        <p class="text-sm text-muted" style="margin-top:8px;font-size:.68rem" id="cam-status-txt">Camera not enabled</p>
+      </div>
+
+      <!-- Camera feed -->
+      <div class="cam-left hidden" id="cam-left-wrap">
+        <video id="camera-bubble-feed" autoplay muted playsinline></video>
+        <div class="cam-left-label">You</div>
+        <div class="face-dot" id="cam-bubble-dot" style="top:7px;right:7px;position:absolute"></div>
+      </div>
+    </div>
+
+    <!-- RIGHT PANEL: Question + transcript + mic -->
+    <div class="interview-right">
+
+      <!-- Current question -->
+      <div class="question-card">
+        <div class="q-eyebrow">
+          <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
+          <span id="q-number">Question 1</span>
+          <span class="q-type-pill" id="q-type">Technical</span>
+        </div>
+        <div class="q-text" id="q-text">Loading your first question...</div>
+        <div id="roast-badge-wrap" class="hidden">
+          <div class="roast-pill" style="margin-top:10px">
+            <svg xmlns="http://www.w3.org/2000/svg" width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M8.5 14.5A2.5 2.5 0 0 0 11 12c0-1.38-.5-2-1-3-1.072-2.143-.224-4.054 2-6 .5 2.5 2 4.9 4 6.5 2 1.6 3 3.5 3 5.5a7 7 0 1 1-14 0c0-1.153.433-2.294 1-3a2.5 2.5 0 0 0 2.5 2.5z"/></svg>
+            Roast Mode Active
+          </div>
+        </div>
+      </div>
+
+      <!-- Think timer -->
+      <div class="think-bar hidden" id="think-timer">
+        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+        <div>
+          <div style="font-size:.77rem;font-weight:600">Think time</div>
+          <div class="text-sm text-muted">Mic opens in <span class="think-num" id="think-count">15</span>s</div>
+        </div>
+      </div>
+
+      <!-- Answer transcript -->
+      <div>
+        <div class="transcript-label-row">
+          <div class="card-title" style="margin:0">
+            <svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"/><path d="M19 10v2a7 7 0 0 1-14 0v-2"/><line x1="12" y1="19" x2="12" y2="23"/><line x1="8" y1="23" x2="16" y2="23"/></svg>
+            Your Answer
+          </div>
+          <div class="mic-status-badge" id="mic-status">Waiting</div>
+        </div>
+        <div class="transcript-box" id="transcript-area">
+          <span class="transcript-placeholder" id="transcript-placeholder">Your spoken answer will appear here...</span>
+          <span id="transcript-text" style="display:none"></span>
+        </div>
+      </div>
+
+      <!-- Mic row -->
+      <div class="mic-row">
+        <div style="position:relative;flex-shrink:0">
+          <div id="mic-ring-1" class="mic-ring mic-ring-1" style="display:none"></div>
+          <div id="mic-ring-2" class="mic-ring mic-ring-2" style="display:none"></div>
+          <button class="mic-btn" id="mic-btn" onclick="toggleMic()">
+            <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"/><path d="M19 10v2a7 7 0 0 1-14 0v-2"/><line x1="12" y1="19" x2="12" y2="23"/><line x1="8" y1="23" x2="16" y2="23"/></svg>
+          </button>
+        </div>
+        <div class="mic-info">
+          <div class="mic-info-title" id="mic-label">Start Speaking</div>
+          <div class="mic-info-sub">Tap mic or press <kbd>Space</kbd></div>
+        </div>
+      </div>
+
+      <!-- Action buttons -->
+      <div class="interview-actions">
+        <button class="btn btn-primary" onclick="submitAnswer()">
+          <svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
+          Submit Answer
+        </button>
+        <button class="btn btn-secondary btn-sm" onclick="skipQuestion()">
+          <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polygon points="5 4 15 12 5 20 5 4"/><line x1="19" y1="5" x2="19" y2="19"/></svg>
+          Skip
+        </button>
+        <button class="btn btn-secondary btn-sm" onclick="repeatQuestion()">
+          <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="17 1 21 5 17 9"/><path d="M3 11V9a4 4 0 0 1 4-4h14"/><polyline points="7 23 3 19 7 15"/><path d="M21 13v2a4 4 0 0 1-4 4H3"/></svg>
+          Repeat
+        </button>
+        <button class="btn btn-danger btn-sm" onclick="endInterview()" style="margin-left:auto">
+          <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"/></svg>
+          End Interview
+        </button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- =============================================================================
+     PAGE: REPORT
+============================================================================= -->
+<div class="page" id="page-report">
+  <div class="report-container">
+    <div class="report-hero">
+      <div class="report-grappie">
+        <div class="grappie-eyes" style="gap:8px;margin-bottom:5px">
+          <div class="grappie-eye" style="width:14px;height:14px"><div class="grappie-pupil" style="width:8px;height:8px"></div></div>
+          <div class="grappie-eye" style="width:14px;height:14px"><div class="grappie-pupil" style="width:8px;height:8px"></div></div>
+        </div>
+        <div class="grappie-mouth" style="width:18px;height:7px"></div>
+        <div class="grappie-cheeks"><div class="grappie-cheek"></div><div class="grappie-cheek"></div></div>
+      </div>
+      <h1 class="report-title">Interview <span class="report-title-accent">Report</span></h1>
+      <p class="report-sub" id="report-subtitle">Generating your report...</p>
+    </div>
+
+    <div class="score-grid" id="score-grid"></div>
+
+    <!-- Loading state while AI generates feedback -->
+    <div id="report-loading" style="text-align:center;padding:48px 0">
+      <div class="loading-ring" style="margin:0 auto 16px"></div>
+      <div style="font-family:'Bricolage Grotesque',sans-serif;font-weight:700;font-size:1.05rem">Analyzing your performance...</div>
+      <div class="text-sm text-muted" style="margin-top:4px">Usually takes 15–20 seconds</div>
+    </div>
+
+    <!-- Report content (shown after AI response) -->
+    <div id="report-content" class="hidden">
+      <div class="report-section">
+        <div class="section-head"><div class="section-icon si-green"><svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg></div>Strengths</div>
+        <ul class="feedback-list" id="strengths-list"></ul>
+      </div>
+      <div class="report-section">
+        <div class="section-head"><div class="section-icon si-amber"><svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg></div>Areas to Improve</div>
+        <ul class="feedback-list" id="weaknesses-list"></ul>
+      </div>
+      <div class="report-section">
+        <div class="section-head"><div class="section-icon si-blue"><svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="22 7 13.5 15.5 8.5 10.5 2 17"/><polyline points="16 7 22 7 22 13"/></svg></div>Action Items</div>
+        <ul class="feedback-list" id="improvements-list"></ul>
+      </div>
+      <div class="report-section">
+        <div class="section-head"><div class="section-icon si-blue"><svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg></div>Interview Transcript</div>
+        <div class="qa-scroll" id="qa-recap"></div>
+      </div>
+      <div style="display:flex;gap:12px;flex-wrap:wrap;justify-content:center;margin-top:40px;padding-top:28px;border-top:1px solid var(--border)">
+        <button class="btn btn-primary btn-lg" onclick="downloadReport()">
+          <svg xmlns="http://www.w3.org/2000/svg" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+          Download Report
+        </button>
+        <button class="btn btn-secondary btn-lg" onclick="goHome()">
+          <svg xmlns="http://www.w3.org/2000/svg" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="1 4 1 10 7 10"/><path d="M3.51 15a9 9 0 1 0 .49-3.87"/></svg>
+          New Interview
+        </button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- =============================================================================
+     JAVASCRIPT MODULES
+     Load order matters: main.js must be first (defines state + utilities),
+     then domain modules, interview last (depends on all others).
+============================================================================= -->
+<script src="js/main.js"></script>
+<script src="js/api.js"></script>
+<script src="js/resumeParser.js"></script>
+<script src="js/timer.js"></script>
+<script src="js/interview.js"></script>
+
+</body>
+</html>
